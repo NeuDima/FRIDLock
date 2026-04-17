@@ -1,0 +1,19 @@
+jwt:
+  secret: rvys7eHsoI89huj0BYLQO3rL25Gmd0ExBGDiTnsnDfM
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/rfid_lock
+    username: lock
+    password: lock
+  flyway:
+    baseline-on-migrate: true
+    enabled: true
+    default-schema: rfid_lock
+    schemas:
+      - rfid_lock
+      - public
+  jpa:
+    properties.hibernate:
+      show_sql: true
+      format_sql: true
