@@ -15,15 +15,17 @@ public class KeyController {
     private final KeyService keyService;
 
     @GetMapping("check")
-    public boolean checkIsKeyForLock(@RequestParam("lockName") String lockName,
+    public ResponseEntity<Boolean> checkIsKeyForLock(@RequestParam("lockName") String lockName,
                                      @RequestParam("keyUid") String uid) {
-        return keyService.isKeyForLock(lockName, uid);
+        boolean result = keyService.isKeyForLock(lockName, uid);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("checkMasterKey")
-    public boolean checkIsMasterKeyForLock(@RequestParam("lockName") String lockName,
+    public ResponseEntity<Boolean> checkIsMasterKeyForLock(@RequestParam("lockName") String lockName,
                                            @RequestParam("keyUid") String uid) {
-        return keyService.isMasterKeyForLock(lockName, uid);
+        boolean result = keyService.isMasterKeyForLock(lockName, uid);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("addKeyToLock")

@@ -75,7 +75,7 @@ class KeyControllerTest {
         var result = keyController.checkIsKeyForLock(nameLock, uidKey);
 
         // then
-        assertTrue(result);
+        assertEquals(ResponseEntity.ok(true), result);
 
         verify(keyService).isKeyForLock("Вход 1", "007");
         verifyNoMoreInteractions(keyService);
@@ -95,7 +95,7 @@ class KeyControllerTest {
         var result = keyController.checkIsMasterKeyForLock(nameLock, uidKey);
 
         // then
-        assertTrue(result);
+        assertEquals(ResponseEntity.ok(true), result);
 
         verify(keyService).isMasterKeyForLock("Вход 1", "007");
         verifyNoMoreInteractions(keyService);
