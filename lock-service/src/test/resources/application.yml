@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16:///rfid_lock
+    username: lock
+    password: lock
+
+jwt:
+  secret: test-secret

@@ -1,95 +1,114 @@
 package neupokoev.com.lockservice.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import neupokoev.com.lockservice.controller.payload.KeyLockPayload;
-import neupokoev.com.lockservice.entity.Group;
-import neupokoev.com.lockservice.entity.Key;
-import neupokoev.com.lockservice.entity.Lock;
-import neupokoev.com.lockservice.repository.GroupRepository;
-import neupokoev.com.lockservice.repository.KeyGroupRepository;
-import neupokoev.com.lockservice.repository.KeyRepository;
-import neupokoev.com.lockservice.repository.LockRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+
+@Transactional  // нужен для отката бд к исходному состоянию
 @Testcontainers
 @SpringBootTest
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc // можно добавить addFilters = false, чтобы отключить защиту
 class KeyControllerIT {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
-            .withDatabaseName("test-db")
-            .withUsername("test")
-            .withPassword("test");
-    @Autowired
-    private GroupRepository groupRepository;
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private KeyRepository keyRepository;
-
-    @Autowired
-    private LockRepository lockRepository;
-
-    @Autowired
-    private KeyGroupRepository keyGroupRepository;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
+    @Sql("/sql/keys.sql")
     @Test
-    void shouldAddKeyToLock_whenKeyNotExists() throws Exception {
-        // GIVEN
-        String lockName = "front-door";
-        String keyUid = "123-UID";
+    void addKeyToLock_RequestIsValid() throws Exception {
+        // given
+        var requestBuilder = MockMvcRequestBuilders
+                .post("/lock-service-api/app/addKeyToLock")
+                .with(jwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"lockName": "Lock 2", "keyUid": "001"}
+                        """);
 
-        Group group = new Group();
-        group.setName("group1");
-        groupRepository.save(group);
+        // when
+        mockMvc.perform(requestBuilder)
+                // then
+                .andDo(print())
+                .andExpectAll(
+                        status().isCreated()
+                );
+    }
 
-        Lock lock = new Lock();
-        lock.setName(lockName);
-        lock.setSecret("123");
-        lock.setGroup(group);
+    @Sql("/sql/keys.sql")
+    @Test
+    void deleteKeyFromLock_RequestIsValid() throws Exception {
+        // given
+        var requestBuilder = MockMvcRequestBuilders
+                .delete("/lock-service-api/app/deleteKeyFromLock")
+                .with(jwt())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"lockName": "Lock 1", "keyUid": "001"}
+                        """);
 
-        lockRepository.save(lock);
+        // when
+        mockMvc.perform(requestBuilder)
+                // then
+                .andDo(print())
+                .andExpectAll(
+                        status().isNoContent()
+                );
+    }
 
-        KeyLockPayload payload = new KeyLockPayload(lockName, keyUid);
+    @Sql("/sql/keys.sql")
+    @Test
+    void checkIsKeyForLock_RequestIsValid() throws Exception {
+        // given
+        var requestBuilder = MockMvcRequestBuilders
+                .get("/lock-service-api/app/check")
+                .with(jwt())
+                .param("lockName", "Lock 1")
+                .param("keyUid", "001");
 
-        // WHEN
-        mockMvc.perform(post("/lock-service-api/app/addKeyToLock")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isOk());
+        // when
+        mockMvc.perform(requestBuilder)
+                // then
+                .andDo(print())
+                .andExpectAll(
+                        status().isOk(),
+                        content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON),
+                        content().string("true")
+                );
+    }
 
-        // THEN
-        Key key = keyRepository.findByUid(keyUid).orElseThrow();
+    @Sql("/sql/keys.sql")
+    @Test
+    void checkIsMasterKeyForLock_RequestIsValid() throws Exception {
+        // given
+        var requestBuilder = MockMvcRequestBuilders
+                .get("/lock-service-api/app/checkMasterKey")
+                .with(jwt())
+                .param("lockName", "Lock 2")
+                .param("keyUid", "002");
 
-        boolean exists = keyGroupRepository.existsByKeyAndGroup(key, group);
-
-        assertTrue(exists);
+        // when
+        mockMvc.perform(requestBuilder)
+                // then
+                .andDo(print())
+                .andExpectAll(
+                        status().isOk(),
+                        content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON),
+                        content().string("true")
+                );
     }
 }
